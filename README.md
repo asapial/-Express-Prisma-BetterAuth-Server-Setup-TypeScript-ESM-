@@ -1,78 +1,53 @@
-Here's a cleaned-up, professional-looking version of your guide suitable for a **README.md** file on GitHub.
+# Professional Setup Guide: Express + Prisma + BetterAuth Server
 
-```markdown
-# Express + Prisma + Better Auth Starter
+This guide outlines the professional method for setting up a robust backend server using Express, Prisma ORM, and BetterAuth with TypeScript in an ESM environment.
 
-Modern TypeScript backend template with:
+## 1. Project Initialization
 
-- Express.js (ESM)
-- Prisma ORM (PostgreSQL)
-- Better Auth (authentication)
-- TypeScript strict mode
-- CORS + cookie handling
-
-## Project Structure (recommended)
-
-```
-hello-prisma/
-├── prisma/
-│   ├── schema/
-│   │   ├── schema.prisma           ← base schema
-│   │   └── auth.prisma             ← Better Auth generated models
-│   └── migrations/                 ← auto-generated
-├── src/
-│   ├── lib/
-│   │   ├── prisma.ts
-│   │   └── auth.ts
-│   ├── server.ts                   ← entry point
-│   └── app.ts                      ← Express app setup
-├── .env
-├── package.json
-└── tsconfig.json
-```
-
-## Setup Instructions
-
-### 1. Initialize Project
-
+### Create Project Directory
+Create a new directory for your project and navigate into it:
 ```bash
 mkdir hello-prisma
 cd hello-prisma
+```
 
+### Initialize TypeScript Project
+Initialize a simplified `package.json` and install the necessary TypeScript dependencies:
+```bash
 npm init -y
 npm install typescript tsx @types/node --save-dev
 npx tsc --init
 ```
 
-### 2. Install Core Dependencies
+## 2. Install Dependencies
 
+Install the core dependencies for the server, database, and utilities:
 ```bash
-npm install prisma --save-dev
-npm install @prisma/client @prisma/adapter-pg dotenv
-npm install express cors cookie-parser
-npm install better-auth
+# Production dependencies
+npm install prisma @prisma/client @prisma/adapter-pg dotenv express cors cookie-parser better-auth
 
-# TypeScript types
-npm install --save-dev @types/express @types/cors @types/cookie-parser @types/node
+# Development dependencies
+npm install --save-dev @types/express @types/cors @types/cookie-parser tsup
 ```
 
-### 3. Configure TypeScript (ESM + modern strict settings)
+## 3. Configuration
 
-Replace content of **`tsconfig.json`** with:
-
+### Configure TypeScript (`tsconfig.json`)
+Update your `tsconfig.json` to support ESM (ECMAScript Modules) and stricter type checking:
 ```json
 {
   "compilerOptions": {
-    "target": "ES2023",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
     "outDir": "./dist",
+    "module": "ESNext",
+    "target": "ES2023",
+    "moduleResolution": "bundler",
+    "types": [],
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
-    "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
+    "strict": true,
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
@@ -84,112 +59,136 @@ Replace content of **`tsconfig.json`** with:
 }
 ```
 
-Add to **`package.json`**:
-
+### Enable ESM in `package.json`
+Add the following key to your `package.json` to enable module support:
 ```json
 {
   "type": "module"
 }
 ```
 
-### 4. Initialize Prisma
+## 4. Database Setup (Prisma)
 
+### Initialize Prisma
+Initialize Prisma with PostgreSQL support. This creates a `prisma` directory and a `.env` file.
 ```bash
-npx prisma init --datasource-provider postgresql --output ./prisma
+npx prisma init --db --output ../generated/prisma
 ```
 
-**Important:** Move the generated `schema.prisma` file:
+### Configure Prisma Client (`src/lib/prisma.ts`)
+Create a standardized Prisma client instance with the PostgreSQL adapter for optimal performance.
 
-```bash
-mkdir -p prisma/schema
-mv prisma/schema.prisma prisma/schema/
-```
-
-Update **`prisma/schema.prisma`** later when adding models.
-
-First migration:
-
-```bash
-npx prisma migrate dev --name init
-npx prisma generate
-```
-
-### 5. Create Prisma Client with pg adapter
-
-**`src/lib/prisma.ts`**
-
-```ts
+**File:** `src/lib/prisma.ts`
+```typescript
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../../prisma/client"; // adjust path if needed
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../generated/prisma/client';
 
-const connectionString = process.env.DATABASE_URL!;
+const connectionString = `${process.env.DATABASE_URL}`;
 
 const adapter = new PrismaPg({ connectionString });
-export const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient({ adapter });
+
+export { prisma };
 ```
 
-### 6. Set up Better Auth
+## 5. Better Auth Setup
 
-**`src/lib/auth.ts`**
+Better Auth provides a comprehensive authentication solution. Configuring it correctly is crucial for security and performance.
 
-```ts
+### Environment Variables
+Add the following to your `.env` file:
+```env
+# Database connection string
+DATABASE_URL="postgresql://user:password@localhost:5432/mydb?schema=public"
+
+# Better Auth Secret (Generate using `openssl rand -base64 32`)
+BETTER_AUTH_SECRET=your_generated_secret_key
+
+# Base URL of your application
+BETTER_AUTH_URL=http://localhost:3000
+```
+
+### Auth Configuration (`src/lib/auth.ts`)
+Create the authentication instance with professional configuration options.
+
+**File:** `src/lib/auth.ts`
+```typescript
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-
 import { prisma } from "./prisma";
 
 export const auth = betterAuth({
-  database: prismaAdapter(prisma, {
-    provider: "postgresql",
-  }),
-
-  emailAndPassword: {
-    enabled: true,
-  },
-
-  session: {
-    cookieCache: {
-      enabled: true,
-      maxAge: 5 * 60, // 5 minutes
+    database: prismaAdapter(prisma, {
+        provider: "postgresql",
+    }),
+    emailAndPassword: {
+        enabled: true
     },
-  },
-
-  advanced: {
-    cookiePrefix: "better-auth",
-    useSecureCookies: process.env.NODE_ENV === "production",
-    crossSubDomainCookies: {
-      enabled: false,
+    session: {
+        cookieCache: {
+            enabled: true,
+            maxAge: 5 * 60, // 5 minutes
+        },
     },
-    disableCSRFCheck: true,
-    defaultCookieAttributes: {
-      sameSite: "none",
-      secure: true,
-      httpOnly: false,
-    },
-  },
+    advanced: {
+        cookiePrefix: "better-auth",
+        useSecureCookies: process.env.NODE_ENV === "production",
+        crossSubDomainCookies: {
+            enabled: false,
+        },
+        disableCSRFCheck: true, 
+        defaultCookieAttributes: {
+            sameSite: "none",
+            secure: true,
+            httpOnly: false
+        }
+    }
 });
 ```
 
-### 7. Generate Better Auth schema
+### Configuration Explanation
 
+*   **`session.cookieCache`**: Enables caching for session cookies to improve performance by reducing database lookups for session validation.
+    *   `enabled`: Activates the cache.
+    *   `maxAge`: Sets the cache duration (e.g., 5 minutes), balancing performance with data freshness.
+
+*   **`advanced.cookiePrefix`**: Sets a custom prefix ("better-auth") for all cookies generated by the library, preventing naming collisions with other services.
+
+*   **`advanced.useSecureCookies`**: Enforces the `Secure` flag on cookies in production environments, ensuring they are only transmitted over HTTPS.
+
+*   **`advanced.defaultCookieAttributes`**: Defines global defaults for cookie security.
+    *   `sameSite: "none"`: Allows cross-site requests (necessary if frontend/backend are on different domains).
+    *   `secure: true`: Ensures cookies are only sent over encrypted connections.
+    *   `httpOnly: false`: Allows client-side JavaScript to access the cookie (configured here as `false`, but typically `true` is recommended for security unless specific client-side access is required).
+
+## 6. Schema Organization & Migration
+
+For a cleaner project structure, organize your Prisma schema files.
+
+1.  **Create Schema Directory**: Create a folder named `schema` inside the `prisma` directory.
+2.  **Move Schema File**: Move your `schema.prisma` file into `prisma/schema`.
+3.  **Update Configuration**: Ensure your `package.json` or Prisma config points to the new schema location if necessary (e.g., `"prisma": { "schema": "prisma/schema" }`).
+
+### Generate Auth Schema
+Use the Better Auth CLI to generate the authentication schema directly from your configuration:
 ```bash
-npx @better-auth/cli@latest generate \
-  --output ./prisma/schema/auth.prisma \
-  --config ./src/lib/auth.ts
+npx @better-auth/cli@latest generate --output ./prisma/schema/auth.prisma --config ./src/lib/auth.ts
 ```
 
-Then migrate:
-
+### Run Migration
+Apply the changes to your database:
 ```bash
-npx prisma migrate dev --name better-auth-init
+npx prisma migrate dev
 ```
 
-### 8. Create Express Application
+## 7. Express Application Setup
 
-**`src/app.ts`**
+### App Configuration (`src/app.ts`)
+Set up the Express application with CORS, Middleware, and the Better Auth handler.
 
-```ts
+**File:** `src/app.ts`
+```typescript
 import express, { Application } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -198,21 +197,21 @@ import { auth } from "./lib/auth";
 
 const app: Application = express();
 
+// Middleware
 app.use(cookieParser());
 app.use(express.json());
 
-// ── CORS (must come early) ────────────────────────────────────────
+// CORS Setup
 const allowedOrigins = ["http://localhost:3000"].filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-
+      
       const isAllowed =
         allowedOrigins.includes(origin) ||
-        /^https:\/\/next-blog-client.*\.vercel\.app$/.test(origin) ||
-        /^https:\/\/.*\.vercel\.app$/.test(origin);
+        /^https:\/\/.*\.vercel\.app$/.test(origin); // Allow Vercel deployments
 
       if (isAllowed) {
         callback(null, true);
@@ -227,10 +226,10 @@ app.use(
   })
 );
 
-// ── Better Auth routes ─────────────────────────────────────────────
-app.all("/api/auth/*", toNodeHandler(auth));
+// Better Auth API Route
+app.all('/api/auth/*', toNodeHandler(auth));
 
-// ── Health check ───────────────────────────────────────────────────
+// Health Check Route
 app.get("/", (_req, res) => {
   res.status(200).json({
     success: true,
@@ -246,77 +245,55 @@ app.get("/", (_req, res) => {
 export default app;
 ```
 
-**`src/server.ts`**
+### Server Entry Point (`src/server.ts`)
+Create the server entry point to connect to the database and start the application.
 
-```ts
+**File:** `src/server.ts`
+```typescript
 import app from "./app";
 import { prisma } from "./lib/prisma";
 
 const PORT = process.env.PORT || 5000;
 
 async function main() {
-  try {
-    await prisma.$connect();
-    console.log("Connected to the database successfully.");
+    try {
+        await prisma.$connect();
+        console.log("Connected to the database successfully.");
 
-    app.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
-    });
-  } catch (error) {
-    console.error("An error occurred:", error);
-    await prisma.$disconnect();
-    process.exit(1);
-  }
+        app.listen(PORT, () => {
+            console.log(`Server is running on http://localhost:${PORT}`);
+        });
+    } catch (error) {
+        console.error("An error occurred:", error);
+        await prisma.$disconnect();
+        process.exit(1);
+    }
 }
 
 main();
 ```
 
-### 9. Recommended `package.json` scripts
+## 8. Final Configuration
+
+### Update Scripts (`package.json`)
+Add the following scripts to your `package.json` to streamline development and deployment:
 
 ```json
-{
-  "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "migrate": "prisma migrate dev",
-    "generate": "prisma generate",
-    "postinstall": "prisma generate",
-    "build": "prisma generate && tsup src/server.ts --format esm --platform node --target node20 --outDir api --external pg-native"
-  }
+"scripts": {
+  "test": "echo \"Error: no test specified\" && exit 1",
+  "dev": "npx tsx watch src/server.ts",
+  "seeding": "npx tsx src/scripts/seedingAdmin.ts",
+  "migrate": "npx prisma migrate dev",
+  "generate": "npx prisma generate",
+  "postinstall": "prisma generate",
+  "build": "prisma generate && tsup src/server.ts --format esm --platform node --target node20 --outDir api --external pg-native"
 }
 ```
 
-### 10. Environment Variables (.env)
-
-```env
-DATABASE_URL="postgresql://user:password@localhost:5432/dbname?schema=public"
-BETTER_AUTH_SECRET=your-very-long-random-secret-min-32-chars
-BETTER_AUTH_URL=http://localhost:5000
-PORT=5000
-NODE_ENV=development
-```
-
-### Quick Start
-
+### Run Development Server
+Start your server in development mode:
 ```bash
-# Install dependencies
-npm install
-
-# Create & migrate database (first time)
-npm run migrate
-
-# Development server with auto-reload
 npm run dev
 ```
 
-Open http://localhost:5000/
-
-Better Auth endpoints will be available under `/api/auth/*`
-
-Good luck with your project! 🚀
-
-```
-
-Feel free to adjust paths, ports, allowed origins, or add sections like **Features**, **Security Notes**, **Deployment** etc. as needed.
-
-Let me know if you'd like to add API documentation examples, authentication flow explanation, or folder structure diagram using mermaid.
+Your server is now set up with a professional architecture using Express, Prisma, and BetterAuth!
